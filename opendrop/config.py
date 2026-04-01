@@ -20,9 +20,11 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import logging
 import os
 import random
+import shutil
 import socket
 import ssl
 import subprocess
+from datetime import datetime, timedelta, timezone
 
 from pkg_resources import resource_filename
 
@@ -131,9 +133,21 @@ class AirDropConfig:
         logger.info(f"Create new self-signed certificate in {self.key_dir}")
         if not os.path.exists(self.key_dir):
             os.makedirs(self.key_dir)
+
+        if self._create_default_key_python():
+            return
+
+        openssl = shutil.which("openssl")
+        if openssl is None:
+            raise RuntimeError(
+                "Could not generate a default certificate. Install the "
+                "'cryptography' Python package or ensure 'openssl' is available "
+                "on PATH."
+            )
+
         subprocess.run(
             [
-                "openssl",
+                openssl,
                 "req",
                 "-newkey",
                 "rsa:2048",
@@ -153,6 +167,59 @@ class AirDropConfig:
             stderr=subprocess.PIPE,
             check=True,
         )
+
+    def _create_default_key_python(self):
+        """
+        Generate key material without depending on an external OpenSSL binary.
+        Returns True if generation was successful.
+        """
+        try:
+            from cryptography import x509
+            from cryptography.hazmat.primitives import hashes, serialization
+            from cryptography.hazmat.primitives.asymmetric import rsa
+            from cryptography.x509.oid import NameOID
+        except ImportError:
+            return False
+
+        key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        subject = x509.Name(
+            [
+                x509.NameAttribute(
+                    NameOID.COMMON_NAME,
+                    self.computer_name,
+                )
+            ]
+        )
+        now = datetime.now(timezone.utc)
+        cert = (
+            x509.CertificateBuilder()
+            .subject_name(subject)
+            .issuer_name(subject)
+            .public_key(key.public_key())
+            .serial_number(x509.random_serial_number())
+            .not_valid_before(now - timedelta(minutes=1))
+            .not_valid_after(now + timedelta(days=365))
+            .add_extension(
+                x509.SubjectAlternativeName([x509.DNSName(self.computer_name)]),
+                critical=False,
+            )
+            .sign(private_key=key, algorithm=hashes.SHA256())
+        )
+
+        with open(self.key_file, "wb") as key_file:
+            key_file.write(
+                key.private_bytes(
+                    encoding=serialization.Encoding.PEM,
+                    format=serialization.PrivateFormat.TraditionalOpenSSL,
+                    encryption_algorithm=serialization.NoEncryption(),
+                )
+            )
+
+        with open(self.cert_file, "wb") as cert_file:
+            cert_file.write(cert.public_bytes(serialization.Encoding.PEM))
+
+        logger.debug("Generated self-signed certificate using cryptography")
+        return True
 
     def get_ssl_context(self):
 
