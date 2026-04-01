@@ -25,6 +25,7 @@ setup(
         "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
         "Operating System :: MacOS",
         "Operating System :: POSIX :: Linux",
+        "Operating System :: Microsoft :: Windows",
         "Natural Language :: English",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.6",
@@ -37,6 +38,7 @@ setup(
     package_data={"opendrop": ["certs/*.pem"]},
     install_requires=[
         "Pillow",
+        "cryptography",
         "fleep",
         "ifaddr",
         "libarchive-c",
