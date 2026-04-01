@@ -6,7 +6,12 @@ def get_loopback():
     import ifaddr
 
     for adapter in ifaddr.get_adapters():
-        if adapter.name.startswith("lo"):
+        name = adapter.name.lower()
+        if (
+            name.startswith("lo")
+            or "loopback" in name
+            or "loopback pseudo-interface" in name
+        ):
             return adapter.name
     return None
 

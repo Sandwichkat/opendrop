@@ -20,6 +20,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import io
 import ipaddress
 import os
+from errno import EISDIR
 
 import ifaddr
 from libarchive.entry import ArchiveEntry, new_archive_entry
@@ -198,7 +199,8 @@ class AbsArchiveWrite(ArchiveWrite):
                                     break
                                 write_data(write_p, data, len(data))
                     except IOError as e:
-                        if e.errno != 21:
+                        # Cross-platform: EISDIR is platform-specific (e.g., 21 on Unix).
+                        if e.errno != EISDIR:
                             raise  # pragma: no cover
                     write_finish_entry(write_p)
                     entry_clear(entry_p)

@@ -22,6 +22,7 @@ import ipaddress
 import logging
 import os
 import platform
+import posixpath
 import plistlib
 import socket
 from http.client import HTTPSConnection
@@ -161,7 +162,8 @@ class AirDropClient:
                 file_entry = {
                     "FileName": file_name,
                     "FileType": AirDropUtil.get_uti_type(flp),
-                    "FileBomPath": os.path.join(".", file_name),
+                    # AirDrop metadata expects POSIX separators even on Windows.
+                    "FileBomPath": posixpath.join(".", file_name),
                     "FileIsDirectory": os.path.isdir(file_name),
                     "ConvertMediaFormats": 0,
                 }
@@ -211,7 +213,7 @@ class AirDropClient:
         ) as archive:
             for f in [file_path]:
                 ff = os.path.basename(f)
-                archive.add_abs_file(f, os.path.join(".", ff))
+                archive.add_abs_file(f, posixpath.join(".", ff))
         stream.seek(0)
 
         # ... then send in chunked mode
